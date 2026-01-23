@@ -1,8 +1,13 @@
 import re
-from urllib.parse import urljoin
-import playwright.sync_api
-from playwright.sync_api import sync_playwright, Playwright
 import csv
+import json
+import playwright.sync_api
+from urllib.parse import urljoin
+from playwright.sync_api import sync_playwright, Playwright
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+from datetime import datetime
+
 
 rootLink = "https://www.espn.com/nfl/teams"
 #https://www.espn.com/nfl/teams
@@ -19,6 +24,14 @@ class PlayerRecord:
         self.Opp = opp
         self.Pos = pos
 
+#Years to read games from
+targetYear = '2025'
+
+def normalize_date(date_str, year):
+    # 'Sun 9/17' → '2025/9/17'
+    cleaned = date_str.split()[1]
+    full_date = f"{year}/{cleaned}"
+    return datetime.strptime(full_date, "%Y/%m/%d").date()
 
 def initCSV(filename='players.csv'):
     # Name, Num, Pos, Date, Opp, PassYd, RushYds
@@ -59,7 +72,6 @@ def ReadQuarterBack(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:s
         print(f'Exception fetching Opponenets - {e}')
         Opps = 'N/A'
 
-    # TODO: Not everybody's gamelog is the same (AJ Dillon is different)
     PassYd = curr.nth(5).inner_text()
     RushYd = curr.nth(15).inner_text()
 
@@ -94,7 +106,6 @@ def ReadRunningBack(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:s
         print(f'Exception fetching Opponenets - {e}')
         Opps = 'N/A'
 
-    # TODO: Not everybody's gamelog is the same (AJ Dillon is different)
     RushYd = curr.nth(4).inner_text()
     RecieveYd = curr.nth(10).inner_text()
 
@@ -129,7 +140,6 @@ def ReadWideReciever(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:
         print(f'Exception fetching Opponenets - {e}')
         Opps = 'N/A'
 
-    # TODO: Not everybody's gamelog is the same (AJ Dillon is different)
     RushYd = curr.nth(10).inner_text()
     RecieveYd = curr.nth(5).inner_text()
 
@@ -164,7 +174,6 @@ def ReadTightEnd(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:str,
         print(f'Exception fetching Opponenets - {e}')
         Opps = 'N/A'
 
-    # TODO: Not everybody's gamelog is the same (AJ Dillon is different)
     RushYd = curr.nth(4).inner_text()
     RecieveYd = curr.nth(10).inner_text()
 
@@ -257,7 +266,7 @@ def GetPlayerGameData(page:playwright.sync_api.Page, link:str, pos:str, fullname
     if not year:
         print('Can not validate player year')
         return
-    elif '2025' not in year:
+    elif targetYear not in year:
         print('Player stats not current')
         return
 
@@ -288,8 +297,24 @@ def GetPlayerGameData(page:playwright.sync_api.Page, link:str, pos:str, fullname
                   f'| Team:{data.Team} '
                   f'| Receive:{data.ReceivingYds}')
 
+            refinedDate = normalize_date(data.Date, targetYear)
+
             # SAVE player data
-            saveToCSV(data)
+            # saveToCSV(data)
+
+            # STREAM to SPring HERE
+            yield json.dumps({
+                "team": data.Team,
+                "name": data.Name,
+                "number": data.Number,
+                "position": data.Pos,
+                "date": str(refinedDate),
+                "opponent": data.Opp,
+                "passingYds": data.PassingYds,
+                "receivingYds": data.ReceivingYds,
+                "rushingYds": data.RushingYds
+            })+"\n"
+
         else:
             print(f'Not recording position {pos}')
             return
@@ -319,7 +344,10 @@ def GoToPlayerPage(page: playwright.sync_api.Page, rowElement:playwright.sync_ap
 
     Number = Numberspan.inner_text()
     Pos = rowElement.locator('td.Table__TD').nth(2).locator('div.inline').inner_text()
-    GetPlayerGameData(page, playerlink, Pos, FullName, Number, teamname)
+    # GetPlayerGameData(page, playerlink, Pos, FullName, Number, teamname)
+
+
+    yield from GetPlayerGameData(page, playerlink, Pos, FullName, Number, teamname)
 
 # ^
 # | Passes { Page, row-element }
@@ -335,7 +363,8 @@ def GoThroughRoster(page:playwright.sync_api.Page, link, tableName, teamname:str
     playerlist = table.locator('tr[class*="Table__TR"]').all()
 
     for row in playerlist:
-        GoToPlayerPage(page, row, teamname)
+        # GoToPlayerPage(page, row, teamname)
+        yield from GoToPlayerPage(page, row, teamname)
 
         #Route back to team home page
         page.goto(link)
@@ -350,7 +379,8 @@ def DiveIntoTeam(browser: playwright.sync_api.Browser, teamLink:str, teamname:st
     newlink = newlink.replace('/team/','/team/roster/')
 
     #Pass the roster link
-    GoThroughRoster(page, newlink, 'ResponsiveTable.Offense.Roster__MixedTable', teamname)
+    # GoThroughRoster(page, newlink, 'ResponsiveTable.Offense.Roster__MixedTable', teamname)
+    yield from GoThroughRoster(page, newlink, 'ResponsiveTable.Offense.Roster__MixedTable', teamname)
 
     page.close()
 
@@ -386,16 +416,49 @@ def Run(playwright: Playwright):
     #Go through each team link
     while len(teamLinkStack) > 0:
         link, teamname = teamLinkStack.pop()
-        DiveIntoTeam(browser, link, teamname)
+        # DiveIntoTeam(browser, link, teamname)
+        yield from DiveIntoTeam(browser, link, teamname)
 
     page.close()
     browser.close()
 
 def Environment():
     with sync_playwright() as playwright:
-        Run(playwright)
+        # Run(playwright)
+        yield from Run(playwright)
 
-Environment()
+#Environment()
+
+def yeildCheck():
+    yield 1
+    yield 2
+    yield 3
+    yield 4
+
+#FastAPI---
+app = FastAPI()
+
+@app.get("/testEndpoint")
+def root():
+    yield from yeildCheck()
+
+@app.get("/testPlayer")
+def player():
+    return {
+    "team":"Chicago Bears",
+    "name":"Caleb Williams",
+    "number":18,
+    "position":"QB",
+    "date": "Thu/20",
+    "opponent":"GB",
+    "passingYds": 120.4,
+    "receivingYds": 83,
+    "rushingYds":14
+    }
+
+@app.get("/scrape")
+def scrape():
+    return StreamingResponse(Environment(), media_type="application/x-ndjson")
 
 #test---
 def testReadPlayer(link):

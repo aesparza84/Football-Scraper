@@ -389,7 +389,8 @@ def DiveIntoTeam(browser: playwright.sync_api.Browser, teamLink:str, teamname:st
 # |
 
 def Run(playwright: Playwright):
-    initCSV()
+    # initCSV()
+    print("Scrape Started")
 
     chrome = playwright.chromium
     browser = chrome.launch()
@@ -421,6 +422,7 @@ def Run(playwright: Playwright):
 
     page.close()
     browser.close()
+    print("Scrape Finished")
 
 def Environment():
     with sync_playwright() as playwright:

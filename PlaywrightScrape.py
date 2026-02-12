@@ -8,7 +8,6 @@ from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from datetime import datetime
 
-
 rootLink = "https://www.espn.com/nfl/teams"
 #https://www.espn.com/nfl/teams
 
@@ -26,6 +25,8 @@ class PlayerRecord:
 
 #Years to read games from
 targetYear = '2025'
+
+# Test
 
 def normalize_date(date_str, year):
     # 'Sun 9/17' → '2025/9/17'

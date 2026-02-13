@@ -1,6 +1,8 @@
 import re
 import csv
 import json
+import logging
+from logging.handlers import RotatingFileHandler
 import playwright.sync_api
 from urllib.parse import urljoin
 from playwright.sync_api import sync_playwright, Playwright
@@ -27,6 +29,9 @@ class PlayerRecord:
 targetYear = '2025'
 
 # Test
+
+logger  = logging.getLogger(__name__)
+logging.basicConfig(filename="scraper.log", level=logging.INFO)
 
 def normalize_date(date_str, year):
     # 'Sun 9/17' → '2025/9/17'
@@ -57,7 +62,7 @@ def ReadQuarterBack(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:s
     Date = curr.nth(0).inner_text()
 
     if not ValidateDate(Date):
-        print('Not a game row')
+        logger.info('Not a game row')
         return None
 
     playerdata = []
@@ -70,7 +75,7 @@ def ReadQuarterBack(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:s
         anchor = innerspan.locator('a')
         Opps = anchor.inner_text()
     except Exception as e:
-        print(f'Exception fetching Opponenets - {e}')
+        logger.info(f'Exception fetching Opponenets - {e}')
         Opps = 'N/A'
 
     PassYd = curr.nth(5).inner_text()
@@ -85,7 +90,7 @@ def ReadQuarterBack(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:s
         "Pos": pos,
         "Number": number
     })
-    print(f'{Date} | vs {Opps} - Passing:{PassYd} - Rushing:{RushYd}')
+    logger.info(f'{Date} | vs {Opps} - Passing:{PassYd} - Rushing:{RushYd}')
     return playerdata
 
 def ReadRunningBack(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:str, number:int):
@@ -95,7 +100,7 @@ def ReadRunningBack(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:s
     Opps = ''
 
     if not ValidateDate(Date):
-        print('Not a game row')
+        logger.info('Not a game row')
         return None
 
     try:
@@ -104,7 +109,7 @@ def ReadRunningBack(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:s
         anchor = innerspan.locator('a')
         Opps = anchor.inner_text()
     except Exception as e:
-        print(f'Exception fetching Opponenets - {e}')
+        logger.info(f'Exception fetching Opponenets - {e}')
         Opps = 'N/A'
 
     RushYd = curr.nth(4).inner_text()
@@ -119,7 +124,7 @@ def ReadRunningBack(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:s
         "Pos": pos,
         "Number": number
     })
-    print(f'{Date} | vs {Opps} - Receiving:{RecieveYd} - Rushing:{RushYd}')
+    logger.info(f'{Date} | vs {Opps} - Receiving:{RecieveYd} - Rushing:{RushYd}')
     return playerdata
 
 def ReadWideReciever(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:str, number:int):
@@ -129,7 +134,7 @@ def ReadWideReciever(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:
     Opps = ''
 
     if not ValidateDate(Date):
-        print('Not a game row')
+        logger.info('Not a game row')
         return None
 
     try:
@@ -138,7 +143,7 @@ def ReadWideReciever(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:
         anchor = innerspan.locator('a')
         Opps = anchor.inner_text()
     except Exception as e:
-        print(f'Exception fetching Opponenets - {e}')
+        logger.info(f'Exception fetching Opponenets - {e}')
         Opps = 'N/A'
 
     RushYd = curr.nth(10).inner_text()
@@ -153,7 +158,7 @@ def ReadWideReciever(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:
         "Pos": pos,
         "Number": number
     })
-    print(f'{Date} | vs {Opps} - Receiving:{RecieveYd} - Rushing:{RushYd}')
+    logger.info(f'{Date} | vs {Opps} - Receiving:{RecieveYd} - Rushing:{RushYd}')
     return playerdata
 
 def ReadTightEnd(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:str, number:int):
@@ -163,7 +168,7 @@ def ReadTightEnd(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:str,
     Opps = ''
 
     if not ValidateDate(Date):
-        print('Not a game row')
+        logger.info('Not a game row')
         return None
 
     try:
@@ -172,7 +177,7 @@ def ReadTightEnd(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:str,
         anchor = innerspan.locator('a')
         Opps = anchor.inner_text()
     except Exception as e:
-        print(f'Exception fetching Opponenets - {e}')
+        logger.info(f'Exception fetching Opponenets - {e}')
         Opps = 'N/A'
 
     RushYd = curr.nth(4).inner_text()
@@ -187,7 +192,7 @@ def ReadTightEnd(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:str,
         "Pos": pos,
         "Number": number
     })
-    print(f'{Date} | vs {Opps} - Receiving:{RecieveYd} - Rushing:{RushYd}')
+    logger.info(f'{Date} | vs {Opps} - Receiving:{RecieveYd} - Rushing:{RushYd}')
     return playerdata
 
 def ReadPlayerLog(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:str, number:int) -> PlayerRecord:
@@ -196,7 +201,7 @@ def ReadPlayerLog(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:str
     Opps = ''
 
     if not ValidateDate(Date):
-        print('Not a game row')
+        logger.info('Not a game row')
         return None
 
     try:
@@ -205,7 +210,7 @@ def ReadPlayerLog(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:str
         anchor = innerspan.locator('a')
         Opps = anchor.inner_text()
     except Exception as e:
-        print(f'Exception fetching Opponenets - {e}')
+        logger.info(f'Exception fetching Opponenets - {e}')
         Opps = 'N/A'
 
     playerdata = None
@@ -233,7 +238,7 @@ def ReadPlayerLog(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:str
         playerdata.RushingYds = RushYd
         playerdata.ReceivingYds = RecieveYd
     else:
-        print(f'Not recording position {pos}')
+        logger.info(f'Not recording position {pos}')
         return None
 
     return playerdata
@@ -244,38 +249,38 @@ def GetPlayerGameData(page:playwright.sync_api.Page, link:str, pos:str, fullname
     #https://www.espn.com/nfl/player/gamelog/_/id/3918298/josh-allen
 
     gameUrl = link.replace('/player/', '/player/gamelog/')
-    print(gameUrl)
+    logger.info(gameUrl)
     page.goto(gameUrl)
 
     #Grab table div, Verify
     tableBase = page.locator('div[class*="gamelog"]').first
     if not tableBase.is_visible():
-        print('Table Base not found')
+        logger.info('Table Base not found')
         return
 
     #Grab Regular Season table
     table = tableBase.locator('table').last
     if not table.is_visible():
-        print('Player has no data this season')
+        logger.info('Player has no data this season')
         return
 
     #Verify the player stats year
     yearheader = table.locator('thead').first
     yearrow = yearheader.locator('tr')
     year = yearrow.nth(0).locator('th').nth(0).inner_text()
-    print(f'year - {year}')
+    logger.info(f'year - {year}')
     if not year:
-        print('Can not validate player year')
+        logger.info('Can not validate player year')
         return
     elif targetYear not in year:
-        print('Player stats not current')
+        logger.info('Player stats not current')
         return
 
     #Count the gamelog rows
     table = table.locator('tbody').last
     rows = table.locator('tr[class*="Table__TR"]:not([class*="totals_row"]):not([class*="Wrapper.Card__Content.NoDataAvailable__Content"])')
     count = rows.count()
-    print(f'rows: {count}')
+    logger.info(f'rows: {count}')
     if count == 0:
         return
 
@@ -291,7 +296,7 @@ def GetPlayerGameData(page:playwright.sync_api.Page, link:str, pos:str, fullname
                 continue
 
             data.Team = teamname
-            print(f'{data.Date} {data.Name} {data.Number} vs {data.Opp} '
+            logger.info(f'{data.Date} {data.Name} {data.Number} vs {data.Opp} '
                   f'| Pos:{data.Pos} '
                   f'| Rush:{data.RushingYds} '
                   f'| Pass:{data.PassingYds} '
@@ -317,7 +322,7 @@ def GetPlayerGameData(page:playwright.sync_api.Page, link:str, pos:str, fullname
             })+"\n"
 
         else:
-            print(f'Not recording position {pos}')
+            logger.info(f'Not recording position {pos}')
             return
 
 
@@ -329,18 +334,18 @@ def GetPlayerGameData(page:playwright.sync_api.Page, link:str, pos:str, fullname
 def GoToPlayerPage(page: playwright.sync_api.Page, rowElement:playwright.sync_api.Locator, teamname:str):
     linkAnchor = rowElement.locator('td.Table__TD').nth(1).locator('a')
     if not linkAnchor.is_visible():
-        print('Player link not found')
+        logger.info('Player link not found')
 
     playerlink = linkAnchor.get_attribute('href')
     if not playerlink:
-        print('Player Link not found')
+        logger.info('Player Link not found')
         return
 
     FullName = linkAnchor.inner_text()
 
     Numberspan = rowElement.locator('span')
     if not Numberspan.is_visible():
-        print('Player has no number')
+        logger.info('Player has no number')
         return
 
     Number = Numberspan.inner_text()
@@ -391,7 +396,7 @@ def DiveIntoTeam(browser: playwright.sync_api.Browser, teamLink:str, teamname:st
 
 def Run(playwright: Playwright):
     # initCSV()
-    print("Scrape Started")
+    logger.info("Scrape Started")
 
     chrome = playwright.chromium
     browser = chrome.launch()
@@ -423,7 +428,7 @@ def Run(playwright: Playwright):
 
     page.close()
     browser.close()
-    print("Scrape Finished")
+    logger.info("Scrape Finished")
 
 def Environment():
     with sync_playwright() as playwright:

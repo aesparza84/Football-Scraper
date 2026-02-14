@@ -30,8 +30,8 @@ targetYear = '2025'
 
 # Test
 
-logger  = logging.getLogger(__name__)
-logging.basicConfig(filename="scraper.log", level=logging.INFO)
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 def normalize_date(date_str, year):
     # 'Sun 9/17' → '2025/9/17'
@@ -244,24 +244,109 @@ def ReadPlayerLog(rows:playwright.sync_api.Locator, i:int, fullname:str, pos:str
     return playerdata
 #endregion
 
-def GetPlayerGameData(page:playwright.sync_api.Page, link:str, pos:str, fullname, number, teamname):
+# def GetPlayerGameData(page:playwright.sync_api.Page, link:str, pos:str, fullname, number, teamname):
+#     #https://www.espn.com/nfl/player/_/id/3918298/josh-allen
+#     #https://www.espn.com/nfl/player/gamelog/_/id/3918298/josh-allen
+#
+#     gameUrl = link.replace('/player/', '/player/gamelog/')
+#     logger.info(gameUrl)
+#     page.goto(gameUrl)
+#
+#     #Grab table div, Verify
+#     tableBase = page.locator('div[class*="gamelog"]').first
+#     if not tableBase.is_visible():
+#         logger.info('Table Base not found')
+#         return
+#
+#     #Grab Regular Season table
+#     table = tableBase.locator('table').last
+#     if not table.is_visible():
+#         logger.info('Player has no data this season')
+#         return
+#
+#     #Verify the player stats year
+#     yearheader = table.locator('thead').first
+#     yearrow = yearheader.locator('tr')
+#     year = yearrow.nth(0).locator('th').nth(0).inner_text()
+#     logger.info(f'year - {year}')
+#     if not year:
+#         logger.info('Can not validate player year')
+#         return
+#     elif targetYear not in year:
+#         logger.info('Player stats not current')
+#         return
+#
+#     #Count the gamelog rows
+#     table = table.locator('tbody').last
+#     rows = table.locator('tr[class*="Table__TR"]:not([class*="totals_row"]):not([class*="Wrapper.Card__Content.NoDataAvailable__Content"])')
+#     count = rows.count()
+#     logger.info(f'rows: {count}')
+#     if count == 0:
+#         return
+#
+#     data=[]
+#     positions = 'QB RB WR TE'
+#
+#     #Get the last 3 played games
+#     for i in range(max(0, count-3), count):
+#         if pos in positions:
+#             data = ReadPlayerLog(rows, i, fullname, pos, number)
+#
+#             if data is None:
+#                 continue
+#
+#             data.Team = teamname
+#             logger.info(f'{data.Date} {data.Name} {data.Number} vs {data.Opp} '
+#                   f'| Pos:{data.Pos} '
+#                   f'| Rush:{data.RushingYds} '
+#                   f'| Pass:{data.PassingYds} '
+#                   f'| Team:{data.Team} '
+#                   f'| Receive:{data.ReceivingYds}')
+#
+#             refinedDate = normalize_date(data.Date, targetYear)
+#
+#             # SAVE player data
+#             # saveToCSV(data)
+#
+#             # STREAM to SPring HERE
+#             yield json.dumps({
+#                 "team": data.Team,
+#                 "name": data.Name,
+#                 "number": data.Number,
+#                 "position": data.Pos,
+#                 "date": str(refinedDate),
+#                 "opponent": data.Opp,
+#                 "passingYds": data.PassingYds,
+#                 "receivingYds": data.ReceivingYds,
+#                 "rushingYds": data.RushingYds
+#             })+"\n"
+#
+#         else:
+#             logger.info(f'Not recording position {pos}')
+#             return
+
+
+def GetPlayerGameData(browser:playwright.sync_api.Browser, link:str, pos:str, fullname, number, teamname):
     #https://www.espn.com/nfl/player/_/id/3918298/josh-allen
     #https://www.espn.com/nfl/player/gamelog/_/id/3918298/josh-allen
 
     gameUrl = link.replace('/player/', '/player/gamelog/')
     logger.info(gameUrl)
+    page = browser.new_page()
     page.goto(gameUrl)
 
     #Grab table div, Verify
     tableBase = page.locator('div[class*="gamelog"]').first
     if not tableBase.is_visible():
         logger.info('Table Base not found')
+        page.close()
         return
 
     #Grab Regular Season table
     table = tableBase.locator('table').last
     if not table.is_visible():
         logger.info('Player has no data this season')
+        page.close()
         return
 
     #Verify the player stats year
@@ -271,9 +356,11 @@ def GetPlayerGameData(page:playwright.sync_api.Page, link:str, pos:str, fullname
     logger.info(f'year - {year}')
     if not year:
         logger.info('Can not validate player year')
+        page.close()
         return
     elif targetYear not in year:
         logger.info('Player stats not current')
+        page.close()
         return
 
     #Count the gamelog rows
@@ -282,6 +369,7 @@ def GetPlayerGameData(page:playwright.sync_api.Page, link:str, pos:str, fullname
     count = rows.count()
     logger.info(f'rows: {count}')
     if count == 0:
+        page.close()
         return
 
     data=[]
@@ -297,11 +385,11 @@ def GetPlayerGameData(page:playwright.sync_api.Page, link:str, pos:str, fullname
 
             data.Team = teamname
             logger.info(f'{data.Date} {data.Name} {data.Number} vs {data.Opp} '
-                  f'| Pos:{data.Pos} '
-                  f'| Rush:{data.RushingYds} '
-                  f'| Pass:{data.PassingYds} '
-                  f'| Team:{data.Team} '
-                  f'| Receive:{data.ReceivingYds}')
+                        f'| Pos:{data.Pos} '
+                        f'| Rush:{data.RushingYds} '
+                        f'| Pass:{data.PassingYds} '
+                        f'| Team:{data.Team} '
+                        f'| Receive:{data.ReceivingYds}')
 
             refinedDate = normalize_date(data.Date, targetYear)
 
@@ -320,10 +408,10 @@ def GetPlayerGameData(page:playwright.sync_api.Page, link:str, pos:str, fullname
                 "receivingYds": data.ReceivingYds,
                 "rushingYds": data.RushingYds
             })+"\n"
-
         else:
             logger.info(f'Not recording position {pos}')
-            return
+
+    page.close()
 
 
 
@@ -331,7 +419,31 @@ def GetPlayerGameData(page:playwright.sync_api.Page, link:str, pos:str, fullname
 # | Passes { Page, Link, "Position", Name, Number}
 # |
 
-def GoToPlayerPage(page: playwright.sync_api.Page, rowElement:playwright.sync_api.Locator, teamname:str):
+# def GoToPlayerPage(page: playwright.sync_api.Page, rowElement:playwright.sync_api.Locator, teamname:str):
+#     linkAnchor = rowElement.locator('td.Table__TD').nth(1).locator('a')
+#     if not linkAnchor.is_visible():
+#         logger.info('Player link not found')
+#
+#     playerlink = linkAnchor.get_attribute('href')
+#     if not playerlink:
+#         logger.info('Player Link not found')
+#         return
+#
+#     FullName = linkAnchor.inner_text()
+#
+#     Numberspan = rowElement.locator('span')
+#     if not Numberspan.is_visible():
+#         logger.info('Player has no number')
+#         return
+#
+#     Number = Numberspan.inner_text()
+#     Pos = rowElement.locator('td.Table__TD').nth(2).locator('div.inline').inner_text()
+#     # GetPlayerGameData(page, playerlink, Pos, FullName, Number, teamname)
+#
+#
+#     yield from GetPlayerGameData(page, playerlink, Pos, FullName, Number, teamname)
+
+def GoToPlayerPage(browser: playwright.sync_api.BrowserContext, rowElement:playwright.sync_api.Locator, teamname:str):
     linkAnchor = rowElement.locator('td.Table__TD').nth(1).locator('a')
     if not linkAnchor.is_visible():
         logger.info('Player link not found')
@@ -353,13 +465,31 @@ def GoToPlayerPage(page: playwright.sync_api.Page, rowElement:playwright.sync_ap
     # GetPlayerGameData(page, playerlink, Pos, FullName, Number, teamname)
 
 
-    yield from GetPlayerGameData(page, playerlink, Pos, FullName, Number, teamname)
+    # yield from GetPlayerGameData(page, playerlink, Pos, FullName, Number, teamname)
+    yield from GetPlayerGameData(browser, playerlink, Pos, FullName, Number, teamname)
 
 # ^
 # | Passes { Page, row-element }
 # |
 
-def GoThroughRoster(page:playwright.sync_api.Page, link, tableName, teamname:str):
+# def GoThroughRoster(page:playwright.sync_api.Page, link, tableName, teamname:str):
+#     page.goto(link)
+#
+#     #Grabs the root div of a given list Offense/Defense
+#     table = page.locator(f'div.{tableName}').locator('tbody').first
+#
+#     #Each row is a player
+#     playerlist = table.locator('tr[class*="Table__TR"]').all()
+#
+#     for row in playerlist:
+#         # GoToPlayerPage(page, row, teamname)
+#         yield from GoToPlayerPage(page, row, teamname)
+#
+#         #Route back to team home page
+#         page.goto(link)
+
+def GoThroughRoster(browser:playwright.sync_api.BrowserContext, link, tableName, teamname:str):
+    page = browser.new_page()
     page.goto(link)
 
     #Grabs the root div of a given list Offense/Defense
@@ -370,25 +500,28 @@ def GoThroughRoster(page:playwright.sync_api.Page, link, tableName, teamname:str
 
     for row in playerlist:
         # GoToPlayerPage(page, row, teamname)
-        yield from GoToPlayerPage(page, row, teamname)
+        # yield from GoToPlayerPage(page, row, teamname)
+        yield from GoToPlayerPage(browser, row, teamname)
 
-        #Route back to team home page
-        page.goto(link)
+    page.close()
 
 # ^
 # | Passes { Page, Roster Link, "Offense or Defense Table CSS-Class" }
 # |
 
 def DiveIntoTeam(browser: playwright.sync_api.Browser, teamLink:str, teamname:str):
-    page = browser.new_page()
+    context = browser.new_context()
+
+    # page = browser.new_page()
     newlink = urljoin(rootLink, teamLink)
     newlink = newlink.replace('/team/','/team/roster/')
 
     #Pass the roster link
     # GoThroughRoster(page, newlink, 'ResponsiveTable.Offense.Roster__MixedTable', teamname)
-    yield from GoThroughRoster(page, newlink, 'ResponsiveTable.Offense.Roster__MixedTable', teamname)
+    # yield from GoThroughRoster(page, newlink, 'ResponsiveTable.Offense.Roster__MixedTable', teamname)
+    yield from GoThroughRoster(context, newlink, 'ResponsiveTable.Offense.Roster__MixedTable', teamname)
 
-    page.close()
+    context.close()
 
 # ^
 # | Passes { Browser, Team Link }
